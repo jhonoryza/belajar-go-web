@@ -7,10 +7,13 @@ import (
 	"time"
 )
 
+type any interface{}
+
 type templateData struct {
 	CurrentYear int
 	Snippet     *models.Snippet
 	Snippets    []*models.Snippet
+	Form        any
 }
 
 func newTemplateCache() (map[string]*template.Template, error) { // Initialize a new map to act as the cache.
