@@ -6,9 +6,8 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"net/http"
 	"snippetbox.labkita.my.id/internal/models"
+	"snippetbox.labkita.my.id/internal/validator"
 	"strconv"
-	"strings"
-	"unicode/utf8"
 )
 
 func (app *application) home(resp http.ResponseWriter, req *http.Request) {
@@ -70,10 +69,10 @@ func (app *application) snippetCreateForm(resp http.ResponseWriter, req *http.Re
 }
 
 type snippetCreateForm struct {
-	Title       string
-	Content     string
-	Expires     int
-	FieldErrors map[string]string
+	Title   string
+	Content string
+	Expires int
+	validator.Validator
 }
 
 func (app *application) snippetCreate(resp http.ResponseWriter, req *http.Request) {
@@ -92,27 +91,20 @@ func (app *application) snippetCreate(resp http.ResponseWriter, req *http.Reques
 	}
 
 	form := snippetCreateForm{
-		Title:       req.PostForm.Get("title"),
-		Content:     req.PostForm.Get("content"),
-		Expires:     expires,
-		FieldErrors: map[string]string{},
+		Title:   req.PostForm.Get("title"),
+		Content: req.PostForm.Get("content"),
+		Expires: expires,
 	}
 
 	/** validation snippets: https://www.alexedwards.net/blog/validation-snippets-for-go
 	 * do validation
 	 */
-	if strings.TrimSpace(form.Title) == "" {
-		form.FieldErrors["title"] = "This field cannot be blank"
-	} else if utf8.RuneCountInString(form.Title) > 100 {
-		form.FieldErrors["title"] = "This field cannot be more than 100 characters long"
-	}
-	if strings.TrimSpace(form.Content) == "" {
-		form.FieldErrors["content"] = "This field cannot be blank"
-	}
-	if form.Expires != 1 && form.Expires != 7 && form.Expires != 365 {
-		form.FieldErrors["expires"] = "This field must equal 1, 7 or 365"
-	}
-	if len(form.FieldErrors) > 0 {
+	form.CheckField(validator.IsNotBlank(form.Title), "title", "this field cannot be blank")
+	form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be more than 100 characters long")
+	form.CheckField(validator.IsNotBlank(form.Content), "content", "this field cannot be blank")
+	form.CheckField(validator.PermittedInt(form.Expires), "title", "This field must equal 1, 7 or 365")
+
+	if !form.IsValid() {
 		data := app.newTemplateData(req)
 		data.Form = form
 		app.render(resp, http.StatusUnprocessableEntity, "create.tmpl", data)
