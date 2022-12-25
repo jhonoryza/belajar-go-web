@@ -69,36 +69,22 @@ func (app *application) snippetCreateForm(resp http.ResponseWriter, req *http.Re
 }
 
 type snippetCreateForm struct {
-	Title   string
-	Content string
-	Expires int
-	validator.Validator
+	Title               string `form:"title"`
+	Content             string `form:"content"`
+	Expires             int    `form:"expires"`
+	validator.Validator `form:"-"`
 }
 
 func (app *application) snippetCreate(resp http.ResponseWriter, req *http.Request) {
 	// cek bad request
-	err := req.ParseForm()
+	var form snippetCreateForm
+	err := app.decodePostForm(req, &form)
 	if err != nil {
 		app.clientError(resp, http.StatusBadRequest)
 		return
 	}
 
-	// grab body param
-	expires, err := strconv.Atoi(req.PostForm.Get("expires"))
-	if err != nil {
-		app.clientError(resp, http.StatusBadRequest)
-		return
-	}
-
-	form := snippetCreateForm{
-		Title:   req.PostForm.Get("title"),
-		Content: req.PostForm.Get("content"),
-		Expires: expires,
-	}
-
-	/** validation snippets: https://www.alexedwards.net/blog/validation-snippets-for-go
-	 * do validation
-	 */
+	/** validation snippets: https://www.alexedwards.net/blog/validation-snippets-for-go */
 	form.CheckField(validator.IsNotBlank(form.Title), "title", "this field cannot be blank")
 	form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be more than 100 characters long")
 	form.CheckField(validator.IsNotBlank(form.Content), "content", "this field cannot be blank")
