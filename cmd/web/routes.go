@@ -26,8 +26,17 @@ func (app *application) routes() http.Handler {
 	router.Handler(http.MethodGet, "/", dynamic.ThenFunc(app.home))
 	router.Handler(http.MethodGet, "/snippets", dynamic.ThenFunc(app.snippetList))
 	router.Handler(http.MethodGet, "/snippets/view/:id", dynamic.ThenFunc(app.snippetView))
-	router.Handler(http.MethodGet, "/snippets/create", dynamic.ThenFunc(app.snippetCreateForm))
-	router.Handler(http.MethodPost, "/snippets/create", dynamic.ThenFunc(app.snippetCreate))
+
+	protected := dynamic.Append(app.requireAuthentication)
+
+	router.Handler(http.MethodGet, "/snippets/create", protected.ThenFunc(app.snippetCreateForm))
+	router.Handler(http.MethodPost, "/snippets/create", protected.ThenFunc(app.snippetCreate))
+
+	router.Handler(http.MethodGet, "/user/signup", dynamic.ThenFunc(app.userSignupForm))
+	router.Handler(http.MethodPost, "/user/signup", dynamic.ThenFunc(app.userSignup))
+	router.Handler(http.MethodGet, "/user/login", dynamic.ThenFunc(app.userLoginForm))
+	router.Handler(http.MethodPost, "/user/login", dynamic.ThenFunc(app.userLogin))
+	router.Handler(http.MethodPost, "/user/logout", dynamic.ThenFunc(app.userLogout))
 
 	// global middleware
 	standard := alice.New(app.recoverPanic, app.logRequest, secureHeaders)

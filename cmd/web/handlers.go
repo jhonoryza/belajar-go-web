@@ -111,3 +111,120 @@ func (app *application) snippetCreate(resp http.ResponseWriter, req *http.Reques
 	// redirection
 	http.Redirect(resp, req, fmt.Sprintf("/snippets/view/%d", id), http.StatusSeeOther)
 }
+
+type userSignupForm struct {
+	Name                string `form:"name"`
+	Email               string `form:"email"`
+	Password            string `form:"password"`
+	validator.Validator `form:"-"`
+}
+
+func (app *application) userSignupForm(resp http.ResponseWriter, req *http.Request) {
+	data := app.newTemplateData(req)
+	data.Form = userSignupForm{}
+	app.render(resp, http.StatusOK, "signup.tmpl", data)
+}
+func (app *application) userSignup(resp http.ResponseWriter, req *http.Request) {
+	var form userSignupForm
+	err := app.decodePostForm(req, &form)
+	if err != nil {
+		app.clientError(resp, http.StatusBadRequest)
+		return
+	}
+
+	form.CheckField(validator.IsNotBlank(form.Name), "name", "this field cannot be blank")
+	form.CheckField(validator.IsNotBlank(form.Email), "email", "this field cannot be blank")
+	form.CheckField(validator.IsNotBlank(form.Password), "password", "this field cannot be blank")
+	form.CheckField(validator.Matches(form.Email, validator.EmailRX), "email", "this field must be a valid email address")
+	form.CheckField(validator.MinChars(form.Password, 8), "password", "this field must be at least 8 char")
+
+	if !form.IsValid() {
+		data := app.newTemplateData(req)
+		data.Form = form
+		app.render(resp, http.StatusUnprocessableEntity, "signup.tmpl", data)
+		return
+	}
+
+	err = app.users.Insert(form.Name, form.Email, form.Password)
+	if err != nil {
+		if errors.Is(err, models.ErrDuplicateEmail) {
+			form.AddFieldError("email", "Email address is already in use")
+			data := app.newTemplateData(req)
+			data.Form = form
+			app.render(resp, http.StatusUnprocessableEntity, "signup.tmpl", data)
+		} else {
+			app.serverError(resp, err)
+		}
+		return
+	}
+
+	app.sessionManager.Put(req.Context(), "flash", "Your signup was successful. Please log in.")
+
+	http.Redirect(resp, req, "/user/login", http.StatusSeeOther)
+}
+
+type userLoginForm struct {
+	Email               string `form:"email"`
+	Password            string `form:"password"`
+	validator.Validator `form:"-"`
+}
+
+func (app *application) userLoginForm(resp http.ResponseWriter, req *http.Request) {
+	data := app.newTemplateData(req)
+	data.Form = userLoginForm{}
+	app.render(resp, http.StatusOK, "login.tmpl", data)
+}
+
+func (app *application) userLogin(resp http.ResponseWriter, req *http.Request) {
+	var form userLoginForm
+	err := app.decodePostForm(req, &form)
+	if err != nil {
+		app.clientError(resp, http.StatusBadRequest)
+		return
+	}
+
+	form.CheckField(validator.IsNotBlank(form.Email), "email", "this field cannot be blank")
+	form.CheckField(validator.Matches(form.Email, validator.EmailRX), "email", "this field must be valid email address")
+	form.CheckField(validator.IsNotBlank(form.Password), "password", "this field cannot be blank")
+
+	if !form.IsValid() {
+		data := app.newTemplateData(req)
+		data.Form = form
+		app.render(resp, http.StatusUnprocessableEntity, "login.tmpl", data)
+		return
+	}
+
+	id, err := app.users.Authenticate(form.Email, form.Password)
+	if err != nil {
+		if errors.Is(err, models.ErrInvalidCredentials) {
+			form.AddNonFieldError("Email or password is incorrect")
+			data := app.newTemplateData(req)
+			data.Form = form
+			app.render(resp, http.StatusUnprocessableEntity, "login.tmpl", data)
+		} else {
+			app.serverError(resp, err)
+		}
+		return
+	}
+
+	err = app.sessionManager.RenewToken(req.Context())
+	if err != nil {
+		app.serverError(resp, err)
+		return
+	}
+
+	app.sessionManager.Put(req.Context(), "authenticatedUserID", id)
+
+	http.Redirect(resp, req, "/snippets/create", http.StatusSeeOther)
+}
+
+func (app *application) userLogout(resp http.ResponseWriter, req *http.Request) {
+	err := app.sessionManager.RenewToken(req.Context())
+	if err != nil {
+		app.serverError(resp, err)
+		return
+	}
+	app.sessionManager.Remove(req.Context(), "authenticatedUserID")
+	app.sessionManager.Put(req.Context(), "flash", "You've been logged out successfully!")
+	http.Redirect(resp, req, "/", http.StatusSeeOther)
+}
