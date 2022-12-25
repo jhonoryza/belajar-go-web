@@ -14,6 +14,7 @@ type templateData struct {
 	Snippet     *models.Snippet
 	Snippets    []*models.Snippet
 	Form        any
+	Flash       string
 }
 
 func newTemplateCache() (map[string]*template.Template, error) { // Initialize a new map to act as the cache.

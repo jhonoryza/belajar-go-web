@@ -52,6 +52,7 @@ func (app *application) snippetView(resp http.ResponseWriter, req *http.Request)
 		}
 		return
 	}
+
 	data := app.newTemplateData(req)
 	data.Snippet = snippet
 
@@ -88,7 +89,7 @@ func (app *application) snippetCreate(resp http.ResponseWriter, req *http.Reques
 	form.CheckField(validator.IsNotBlank(form.Title), "title", "this field cannot be blank")
 	form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be more than 100 characters long")
 	form.CheckField(validator.IsNotBlank(form.Content), "content", "this field cannot be blank")
-	form.CheckField(validator.PermittedInt(form.Expires), "title", "This field must equal 1, 7 or 365")
+	form.CheckField(validator.PermittedInt(form.Expires, 1, 7, 365), "expires", "This field must equal 1, 7 or 365")
 
 	if !form.IsValid() {
 		data := app.newTemplateData(req)
@@ -103,6 +104,9 @@ func (app *application) snippetCreate(resp http.ResponseWriter, req *http.Reques
 		app.serverError(resp, err)
 		return
 	}
+
+	// flash message
+	app.sessionManager.Put(req.Context(), "flash", "Snippet successfully created!")
 
 	// redirection
 	http.Redirect(resp, req, fmt.Sprintf("/snippets/view/%d", id), http.StatusSeeOther)

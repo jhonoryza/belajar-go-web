@@ -19,13 +19,17 @@ func (app *application) routes() http.Handler {
 		app.notFound(resp)
 	})
 
-	// Handler Route
-	router.HandlerFunc(http.MethodGet, "/", app.home)
-	router.HandlerFunc(http.MethodGet, "/snippets", app.snippetList)
-	router.HandlerFunc(http.MethodGet, "/snippets/view/:id", app.snippetView)
-	router.HandlerFunc(http.MethodGet, "/snippets/create", app.snippetCreateForm)
-	router.HandlerFunc(http.MethodPost, "/snippets/create", app.snippetCreate)
+	// route middleware
+	dynamic := alice.New(app.sessionManager.LoadAndSave)
 
+	// Handler Route
+	router.Handler(http.MethodGet, "/", dynamic.ThenFunc(app.home))
+	router.Handler(http.MethodGet, "/snippets", dynamic.ThenFunc(app.snippetList))
+	router.Handler(http.MethodGet, "/snippets/view/:id", dynamic.ThenFunc(app.snippetView))
+	router.Handler(http.MethodGet, "/snippets/create", dynamic.ThenFunc(app.snippetCreateForm))
+	router.Handler(http.MethodPost, "/snippets/create", dynamic.ThenFunc(app.snippetCreate))
+
+	// global middleware
 	standard := alice.New(app.recoverPanic, app.logRequest, secureHeaders)
 
 	return standard.Then(router)
