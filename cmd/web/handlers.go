@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
 	"snippetbox.labkita.my.id/internal/models"
 	"strconv"
@@ -15,23 +14,14 @@ func (app *application) home(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//render html files
-	files := []string{
-		"./ui/html/base.tmpl",
-		"./ui/html/partials/nav.tmpl",
-		"./ui/html/pages/home.tmpl",
-	}
-
-	ts, err := template.ParseFiles(files...)
+	snippets, err := app.snippets.Latest()
 	if err != nil {
 		app.serverError(resp, err)
 		return
 	}
-
-	err = ts.ExecuteTemplate(resp, "base", nil)
-	if err != nil {
-		app.serverError(resp, err)
-	}
+	data := app.newTemplateData(req)
+	data.Snippets = snippets
+	app.render(resp, http.StatusOK, "home.tmpl", data)
 }
 
 func (app *application) snippetList(resp http.ResponseWriter, req *http.Request) {
@@ -46,13 +36,15 @@ func (app *application) snippetList(resp http.ResponseWriter, req *http.Request)
 }
 
 func (app *application) snippetView(resp http.ResponseWriter, req *http.Request) {
+	//validation id
 	id, err := strconv.Atoi(req.URL.Query().Get("id"))
 	if err != nil || id < 1 {
 		app.notFound(resp)
 		return
 	}
 
-	_, err = app.snippets.Get(id)
+	//query by id
+	snippet, err := app.snippets.Get(id)
 	if err != nil {
 		if errors.Is(err, models.ErrNoRecord) {
 			app.notFound(resp)
@@ -61,7 +53,10 @@ func (app *application) snippetView(resp http.ResponseWriter, req *http.Request)
 		}
 		return
 	}
-	fmt.Fprintf(resp, "view detail id %d", id)
+	data := app.newTemplateData(req)
+	data.Snippet = snippet
+
+	app.render(resp, http.StatusOK, "view.tmpl", data)
 }
 
 func (app *application) snippetCreate(resp http.ResponseWriter, req *http.Request) {
