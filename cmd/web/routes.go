@@ -20,22 +20,21 @@ func (app *application) routes() http.Handler {
 	})
 
 	// route middleware
-	dynamic := alice.New(app.sessionManager.LoadAndSave)
+	dynamic := alice.New(app.sessionManager.LoadAndSave, noSurf)
 
 	// Handler Route
 	router.Handler(http.MethodGet, "/", dynamic.ThenFunc(app.home))
 	router.Handler(http.MethodGet, "/snippets", dynamic.ThenFunc(app.snippetList))
 	router.Handler(http.MethodGet, "/snippets/view/:id", dynamic.ThenFunc(app.snippetView))
+	router.Handler(http.MethodGet, "/user/signup", dynamic.ThenFunc(app.userSignupForm))
+	router.Handler(http.MethodPost, "/user/signup", dynamic.ThenFunc(app.userSignup))
+	router.Handler(http.MethodGet, "/user/login", dynamic.ThenFunc(app.userLoginForm))
+	router.Handler(http.MethodPost, "/user/login", dynamic.ThenFunc(app.userLogin))
 
 	protected := dynamic.Append(app.requireAuthentication)
 
 	router.Handler(http.MethodGet, "/snippets/create", protected.ThenFunc(app.snippetCreateForm))
 	router.Handler(http.MethodPost, "/snippets/create", protected.ThenFunc(app.snippetCreate))
-
-	router.Handler(http.MethodGet, "/user/signup", dynamic.ThenFunc(app.userSignupForm))
-	router.Handler(http.MethodPost, "/user/signup", dynamic.ThenFunc(app.userSignup))
-	router.Handler(http.MethodGet, "/user/login", dynamic.ThenFunc(app.userLoginForm))
-	router.Handler(http.MethodPost, "/user/login", dynamic.ThenFunc(app.userLogin))
 	router.Handler(http.MethodPost, "/user/logout", dynamic.ThenFunc(app.userLogout))
 
 	// global middleware
